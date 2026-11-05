@@ -6,6 +6,14 @@ A empresa solicitou uma aplicação para consulta de informações meteorológic
 
 O briefing define as capacidades principais, mas ainda não especifica público-alvo, localização automática, nível de detalhe da previsão nem critérios mensuráveis de qualidade.
 
+## Personas Provisórias
+
+Estas personas são hipóteses iniciais derivadas dos usos descritos para o produto e precisam ser validadas com usuários reais.
+
+- **Marina — profissional que se desloca diariamente:** consulta o clima atual da cidade onde mora, principalmente pelo celular antes de sair, para se preparar para o dia.
+- **Rafael — pessoa que planeja atividades ao ar livre:** consulta a previsão dos próximos dias, pelo celular ou desktop, para escolher quando realizar uma atividade.
+- **Camila — viajante:** busca cidades fora de sua rotina, principalmente pelo celular durante deslocamentos ou pelo desktop ao planejar uma viagem, para se preparar para as condições locais.
+
 ## Decisões
 
 - **Fonte de dados — Open-Meteo, sem API key.** Justificativa: usar a fonte definida para o produto sem exigir gestão de chave de API. Resolve a escolha do provedor; requisitos de atualização, disponibilidade e atribuição ainda precisam ser definidos.
