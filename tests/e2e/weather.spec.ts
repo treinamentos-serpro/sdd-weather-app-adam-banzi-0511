@@ -43,7 +43,7 @@ test('fluxo completo: buscar → clima atual → previsão → trocar unidade', 
   await mockApis(page);
   await page.goto('/');
 
-  await page.getByLabel(/buscar cidade/i).fill('Seattle');
+  await page.getByRole('textbox', { name: /buscar cidade/i }).fill('Seattle');
   await page.getByRole('button', { name: /buscar/i }).click();
 
   await expect(page.getByRole('heading', { name: 'Seattle' })).toBeVisible();
@@ -59,7 +59,7 @@ test('estado vazio quando a cidade não existe', async ({ page }) => {
   await page.route('**/geocoding-api.open-meteo.com/**', (route) => route.fulfill({ json: {} }));
   await page.goto('/');
 
-  await page.getByLabel(/buscar cidade/i).fill('xyzxyz');
+  await page.getByRole('textbox', { name: /buscar cidade/i }).fill('xyzxyz');
   await page.getByRole('button', { name: /buscar/i }).click();
 
   await expect(page.getByText(/nenhuma cidade encontrada/i)).toBeVisible();
@@ -70,7 +70,7 @@ test('viewport mobile renderiza o fluxo principal', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await page.goto('/');
 
-  await page.getByLabel(/buscar cidade/i).fill('Seattle');
+  await page.getByRole('textbox', { name: /buscar cidade/i }).fill('Seattle');
   await page.getByRole('button', { name: /buscar/i }).click();
   await expect(page.getByRole('heading', { name: 'Seattle' })).toBeVisible();
 });
