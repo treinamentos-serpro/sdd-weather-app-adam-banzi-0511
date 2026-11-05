@@ -18,8 +18,8 @@ Para tornar os fluxos testáveis, esta especificação fixa defaults de produto 
 ## Functional Requirements
 
 - **FR-01 — Buscar e selecionar cidade:** permitir busca por nome de cidade com espaços externos ignorados e caracteres Unicode preservados. Exibir nome da cidade e, quando disponíveis, região e país; se esses campos não distinguirem homônimos, incluir coordenadas. A consulta meteorológica só começa após o usuário selecionar um resultado.
-- **FR-02 — Consultar condições atuais:** após a seleção, exibir temperatura do ar, condição meteorológica, cidade e horário local de referência retornado pela Open-Meteo. Dados com mais de duas horas de idade devem ser identificados como desatualizados.
-- **FR-03 — Consultar previsão diária:** exibir hoje e os quatro dias locais seguintes. Para cada data, exibir temperatura mínima, máxima e condição meteorológica.
+- **FR-02 — Consultar condições atuais:** após a seleção, exibir cidade, horário local de referência e temperatura do ar, condição meteorológica, umidade relativa (%), velocidade do vento (km/h), precipitação (mm) e pressão atmosférica (hPa), conforme retornados pela Open-Meteo. Dados com mais de duas horas de idade devem ser identificados como desatualizados.
+- **FR-03 — Consultar previsão diária:** exibir hoje e os quatro dias locais seguintes. Para cada data, exibir temperatura mínima, máxima, condição meteorológica e probabilidade máxima diária de precipitação em percentual quando disponível.
 - **FR-04 — Alternar unidade de temperatura:** iniciar cada carregamento do app em Celsius (°C); permitir alternar entre Celsius e Fahrenheit (°F). A escolha vale até o app ser recarregado e não é persistida localmente nem no servidor. Converter a partir dos valores originais e arredondar ao inteiro mais próximo, com empates afastados de zero.
 - **FR-05 — Tratar estados de busca e consulta:** distinguir input vazio, ausência de resultados, erro do provedor/rede, timeout e resposta parcial. Em timeout, encerrar a espera após 10 segundos por requisição. Exibir mensagem adequada e ação para tentar novamente em falhas recuperáveis; não repetir automaticamente.
 
@@ -54,10 +54,11 @@ Para tornar os fluxos testáveis, esta especificação fixa defaults de produto 
 
 ### FR-02 — Consultar condições atuais
 
+
 - **AC-02.1 — Exibir condições atuais**
-	- **Given** a cidade selecionada tem uma resposta atual válida com temperatura, condição e horário de referência
+	- **Given** a cidade selecionada tem uma resposta atual válida com temperatura, condição, umidade, vento, precipitação, pressão e horário de referência
 	- **When** a consulta termina
-	- **Then** a tela exibe cidade, temperatura arredondada, unidade, condição e horário local de referência
+	- **Then** a tela exibe cidade, temperatura arredondada e unidade, condição, umidade em %, vento em km/h, precipitação em mm, pressão em hPa e horário local de referência
 - **AC-02.2 — Identificar dados desatualizados**
 	- **Given** o horário de referência retornado tem mais de duas horas em relação ao relógio de teste
 	- **When** as condições são exibidas
@@ -69,10 +70,11 @@ Para tornar os fluxos testáveis, esta especificação fixa defaults de produto 
 	- **Given** o relógio de teste e o fuso horário da cidade estão fixados e há previsão completa
 	- **When** a consulta termina
 	- **Then** são exibidas exatamente cinco datas locais consecutivas, de hoje até hoje mais quatro dias, em ordem cronológica
+
 - **AC-03.2 — Exibir campos diários**
-	- **Given** cada data tem mínima, máxima e condição na resposta da fonte
+	- **Given** cada data tem mínima, máxima, condição e probabilidade de precipitação na resposta da fonte
 	- **When** a previsão é exibida
-	- **Then** cada data apresenta os três campos e a cidade selecionada
+- **Then** cada data apresenta mínima, máxima e condição; quando houver probabilidade, exibe o percentual e a cidade selecionada
 - **AC-03.3 — Marcar dia sem dados**
 	- **Given** a resposta não contém previsão para uma das cinco datas
 	- **When** a previsão é exibida
@@ -166,7 +168,7 @@ As metas quantitativas abaixo são propostas iniciais para tornar a validação 
 
 - A busca cobre cidades disponíveis no geocoding da Open-Meteo; não cobre localização automática nem códigos postais.
 - A previsão é diária e apresenta mínima, máxima e condição para hoje e os quatro dias seguintes no fuso local.
-- As condições atuais mínimas são temperatura do ar e condição meteorológica; outros indicadores não são necessários para o lançamento inicial.
+- As condições atuais incluem temperatura do ar, condição, umidade relativa, velocidade do vento, precipitação e pressão atmosférica; outros indicadores não são necessários para o lançamento inicial.
 - Temperaturas são arredondadas ao inteiro mais próximo, com empates afastados de zero; conversões usam o valor original, não o valor arredondado exibido.
 - A unidade é temporária por sessão; uma nova sessão começa em Celsius.
 - O produto é web responsivo, em pt-BR, sem autenticação e sem persistência de dados do usuário no servidor.
@@ -190,7 +192,7 @@ As metas quantitativas abaixo são propostas iniciais para tornar a validação 
 - Funcionamento offline como requisito garantido.
 - Idiomas de interface além de pt-BR.
 - Alternância de unidades além da temperatura.
-- Campos meteorológicos adicionais além dos mínimos que venham a ser confirmados.
+- Sensação térmica, índice UV, rajadas de vento e outros campos não listados em FR-02/FR-03.
 
 ## Open Questions
 

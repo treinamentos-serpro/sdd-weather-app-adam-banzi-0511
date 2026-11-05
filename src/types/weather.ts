@@ -12,36 +12,37 @@ export type Unit = 'celsius' | 'fahrenheit';
 export interface City {
   id: number;
   name: string;
-  country: string;
-  /** Estado/região, quando disponível (ajuda a desambiguar homônimos). */
-  admin1?: string;
+  region: string | null;
+  country: string | null;
   latitude: number;
   longitude: number;
 }
 
-/** Condições atuais. Temperatura sempre em °C. */
+/** Condições atuais da spec. Temperatura sempre em °C. */
 export interface CurrentWeather {
-  temperature: number;
-  weatherCode: number;
-  humidity: number;
-  windSpeed: number;
-  pressure: number;
-  precipitation: number;
-  time: string;
+  temperatureC: number | null;
+  weatherCode: number | null;
+  referenceTimeLocal: string | null;
+  humidityPercent: number | null;
+  windSpeedKmh: number | null;
+  precipitationMm: number | null;
+  pressureHpa: number | null;
 }
 
 /** Um dia da previsão. Temperaturas sempre em °C. */
 export interface ForecastDay {
-  date: string;
-  min: number;
-  max: number;
-  weatherCode: number;
-  precipitationProbability: number;
+  localDate: string;
+  minimumC: number | null;
+  maximumC: number | null;
+  weatherCode: number | null;
+  precipitationProbabilityMaxPercent: number | null;
 }
 
-/** Agregado entregue à UI: cidade + clima atual + 5 dias de previsão. */
+export type FiveDayForecast = [ForecastDay, ForecastDay, ForecastDay, ForecastDay, ForecastDay];
+
+/** Agregado entregue à UI: cidade + clima atual + cinco datas locais. */
 export interface WeatherData {
   city: City;
   current: CurrentWeather;
-  forecast: ForecastDay[];
+  forecast: [ForecastDay, ForecastDay, ForecastDay, ForecastDay, ForecastDay];
 }

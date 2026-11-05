@@ -1,6 +1,6 @@
-import type { CurrentWeather as CurrentWeatherType, City, Unit } from '../types/weather';
 import { formatTemperature } from '../lib/temperature';
 import { getWeatherIcon, getWeatherLabel } from '../lib/weatherCodes';
+import type { City, CurrentWeather as CurrentWeatherType, Unit } from '../types/weather';
 
 interface CurrentWeatherProps {
   city: City;
@@ -8,29 +8,27 @@ interface CurrentWeatherProps {
   unit: Unit;
 }
 
-interface MetricProps {
-  icon: string;
+interface Metric {
   label: string;
-  value: string;
+  value: number | null;
+  unit: string;
+  maximumFractionDigits?: number;
 }
 
-function Metric({ icon, label, value }: MetricProps) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3 backdrop-blur-md">
-      <span aria-hidden="true" className="text-xl">
-        {icon}
-      </span>
-      <div>
-        <p className="text-xs text-white/50">{label}</p>
-        <p className="font-semibold">{value}</p>
-      </div>
-    </div>
-  );
+function formatMetric(value: number | null, unit: string, maximumFractionDigits = 1): string {
+  if (value === null) return 'Indisponível';
+  return `${new Intl.NumberFormat('pt-BR', { maximumFractionDigits }).format(value)} ${unit}`;
 }
 
-/** Seção "hero" com as condições atuais da cidade selecionada. */
+/** Hero com condições atuais e métricas da cidade selecionada. */
 export default function CurrentWeather({ city, current, unit }: CurrentWeatherProps) {
-  const location = [city.admin1, city.country].filter(Boolean).join(', ');
+  const location = [city.region, city.country].filter(Boolean).join(', ');
+  const metrics: Metric[] = [
+    { label: 'Umidade', value: current.humidityPercent, unit: '%' },
+    { label: 'Vento', value: current.windSpeedKmh, unit: 'km/h' },
+    { label: 'Precipitação', value: current.precipitationMm, unit: 'mm' },
+    { label: 'Pressão', value: current.pressureHpa, unit: 'hPa' },
+  ];
 
   return (
     <section
@@ -43,35 +41,39 @@ export default function CurrentWeather({ city, current, unit }: CurrentWeatherPr
           {location && <p className="text-white/60">{location}</p>}
 
           <div className="mt-6 flex items-center gap-4">
-            <span aria-hidden="true" className="text-6xl">
-              {getWeatherIcon(current.weatherCode)}
-            </span>
+            {current.weatherCode !== null && (
+              <span aria-hidden="true" className="text-6xl">
+                {getWeatherIcon(current.weatherCode)}
+              </span>
+            )}
             <span className="text-6xl font-light md:text-7xl">
-              {formatTemperature(current.temperature, unit)}
+              {current.temperatureC === null
+                ? 'Indisponível'
+                : formatTemperature(current.temperatureC, unit)}
             </span>
           </div>
-          <p className="mt-2 text-white/70">{getWeatherLabel(current.weatherCode)}</p>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <Metric icon="💧" label="Umidade" value={`${Math.round(current.humidity)}%`} />
-          <Metric
-            icon="💨"
-            label="Vento"
-            value={`${Math.round(current.windSpeed)} km/h`}
-          />
-          <Metric
-            icon="🌧️"
-            label="Precipitação"
-            value={`${current.precipitation} mm`}
-          />
-          <Metric
-            icon="📊"
-            label="Pressão"
-            value={`${Math.round(current.pressure)} hPa`}
-          />
+          <p className="mt-2 text-white/70">
+            {current.weatherCode === null
+              ? 'Condição indisponível'
+              : getWeatherLabel(current.weatherCode)}
+          </p>
+          <p className="mt-1 text-xs text-white/50">
+            {current.referenceTimeLocal
+              ? `Referência local: ${current.referenceTimeLocal}`
+              : 'Horário de referência indisponível'}
+          </p>
         </div>
       </div>
+      <dl className="mt-6 grid grid-cols-2 gap-x-6 gap-y-4 border-t border-white/10 pt-5 sm:grid-cols-4">
+        {metrics.map((metric) => (
+          <div key={metric.label}>
+            <dt className="text-xs text-white/50">{metric.label}</dt>
+            <dd className="mt-1 font-semibold">
+              {formatMetric(metric.value, metric.unit, metric.maximumFractionDigits)}
+            </dd>
+          </div>
+        ))}
+      </dl>
     </section>
   );
 }

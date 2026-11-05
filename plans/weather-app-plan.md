@@ -52,7 +52,7 @@ Manter a estrutura atual e concentrar responsabilidades nos módulos existentes;
 - `src/components/states/`: estados visuais `LoadingState`, `EmptyState` e `ErrorState`, sem lógica de rede.
 - `src/hooks/useWeather.ts`: orquestração e estado de busca/seleção/consulta; retry manual; proteção contra respostas concorrentes obsoletas.
 - `src/services/weatherService.ts`: endpoints, parâmetros, timeout, validação, erros tipados e transformação DTO -> domínio.
-- `src/types/weather.ts`: `City`, `CurrentConditions`, `ForecastDay`, `WeatherSnapshot`, unidade e tipos de erro compartilhados.
+- `src/types/weather.ts`: `Unit`, `City`, `CurrentWeather`, `ForecastDay`, `WeatherData` e tipos de erro compartilhados.
 - `src/lib/temperature.ts`: conversões e regra de arredondamento; recebe valores originais em Celsius.
 - `src/lib/format.ts`: apresentação pt-BR e hora/data local; `src/lib/weatherCodes.ts`: mapeamento puro de códigos WMO para rótulos.
 - `src/styles/index.css`: estilos globais e diretivas Tailwind já existentes.
@@ -67,7 +67,7 @@ Não criar novas camadas ou diretórios enquanto essas responsabilidades coubere
 Contratos de domínio propostos. Valores externos opcionais ou inválidos devem ser representados como `null`, nunca convertidos para zero. `weatherCode` é o código numérico recebido da Open-Meteo; sua descrição é derivada na UI por `weatherCodes.ts`.
 
 ```ts
-type TemperatureUnit = 'celsius' | 'fahrenheit';
+type Unit = 'celsius' | 'fahrenheit';
 
 interface City {
   id: number;
@@ -78,10 +78,14 @@ interface City {
   longitude: number;
 }
 
-interface CurrentConditions {
+interface CurrentWeather {
   temperatureC: number | null;
   weatherCode: number | null;
   referenceTimeLocal: string | null;
+  humidityPercent: number | null;
+  windSpeedKmh: number | null;
+  precipitationMm: number | null;
+  pressureHpa: number | null;
 }
 
 interface ForecastDay {
@@ -89,16 +93,17 @@ interface ForecastDay {
   minimumC: number | null;
   maximumC: number | null;
   weatherCode: number | null;
+  precipitationProbabilityMaxPercent: number | null;
 }
 
-interface WeatherSnapshot {
+interface WeatherData {
   city: City;
-  current: CurrentConditions;
-  days: [ForecastDay, ForecastDay, ForecastDay, ForecastDay, ForecastDay];
+  current: CurrentWeather;
+  forecast: [ForecastDay, ForecastDay, ForecastDay, ForecastDay, ForecastDay];
 }
 ```
 
-`days` contém exatamente cinco datas locais, criadas a partir da janela acordada e preenchidas com `null` nos dados ausentes. A identidade geográfica da cidade selecionada acompanha todas as consultas; não usar apenas o nome para correlacionar respostas.
+`forecast` contém exatamente cinco datas locais, criadas a partir da janela acordada e preenchidas com `null` nos dados ausentes. `CurrentWeather` contém os campos atuais de FR-02; cada métrica ausente permanece `null`. A identidade geográfica da cidade selecionada acompanha todas as consultas; não usar apenas o nome para correlacionar respostas.
 
 Contrato de erro de serviço: `kind` discriminado entre `network`, `http`, `timeout` e `invalid-response`; “nenhum resultado” é um estado válido de geocoding, não erro. Mensagens localizadas ficam na camada de UI, não no parser da API.
 
@@ -109,7 +114,7 @@ Contrato de erro de serviço: `kind` discriminado entre `network`, `http`, `time
 3. O serviço consulta geocoding, valida e mapeia candidatos `City`. Lista vazia vira `empty` com `emptyReason='no-results'`; erro ou timeout vira `error`.
 4. A UI exibe candidatos identificados por nome, região/país e coordenadas quando necessário. Nenhuma previsão é carregada até seleção explícita.
 5. Ao selecionar, o hook limpa dados da cidade anterior, registra a cidade e inicia `loading` com `operation='weather'`.
-6. O serviço busca clima atual e previsão para latitude/longitude, timezone `auto` e cinco dias; valida e mapeia para `WeatherSnapshot`.
+6. O serviço busca clima atual e previsão para latitude/longitude, timezone `auto` e cinco dias; valida e mapeia para `WeatherData`.
 7. Uma resposta completa ou parcial válida vira `success`; campos ausentes permanecem `null`. Erro recuperável habilita retry manual.
 8. A UI converte Celsius para a unidade da sessão a partir dos valores originais. Recarregar a página reinicia a unidade para Celsius.
 
@@ -172,8 +177,8 @@ Cada nova operação invalida a operação anterior (por cancelamento ou identif
 
 ### Forecast
 
-- **URL:** `GET https://api.open-meteo.com/v1/forecast?latitude=-23.5475&longitude=-46.63611&current=temperature_2m,weather_code&daily=temperature_2m_min,temperature_2m_max,weather_code&forecast_days=5&timezone=auto&temperature_unit=celsius`
-- **Parâmetros relevantes:** `latitude` e `longitude` vêm do `City` selecionado; `current` solicita temperatura do ar e código de condição atuais; `daily` solicita mínima, máxima e código diário; `forecast_days=5` define hoje e os quatro dias seguintes; `timezone=auto` usa o fuso do local; `temperature_unit=celsius` explicita a unidade canônica do domínio.
+- **URL:** `GET https://api.open-meteo.com/v1/forecast?latitude=-23.5475&longitude=-46.63611&current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m,precipitation,surface_pressure&daily=temperature_2m_min,temperature_2m_max,weather_code,precipitation_probability_max&forecast_days=5&timezone=auto&temperature_unit=celsius&wind_speed_unit=kmh&precipitation_unit=mm`
+- **Parâmetros relevantes:** `latitude` e `longitude` vêm do `City` selecionado; `current` solicita temperatura, condição, umidade relativa, velocidade do vento, precipitação e pressão; `daily` solicita mínima, máxima, código e probabilidade máxima diária de precipitação; `forecast_days=5` define hoje e os quatro dias seguintes; `timezone=auto` usa o fuso do local; `temperature_unit=celsius`, `wind_speed_unit=kmh` e `precipitation_unit=mm` explicitam as unidades.
 - **Exemplo resumido de resposta:**
 
 ```json
@@ -183,20 +188,25 @@ Cada nova operação invalida a operação anterior (por cancelamento ou identif
   "current": {
     "time": "2026-11-05T10:00",
     "temperature_2m": 22.4,
+    "relative_humidity_2m": 62,
+    "wind_speed_10m": 12.5,
+    "precipitation": 0.2,
+    "surface_pressure": 1012.4,
     "weather_code": 2
   },
   "daily": {
     "time": ["2026-11-05", "2026-11-06", "2026-11-07", "2026-11-08", "2026-11-09"],
     "temperature_2m_min": [17.1, 18.0, 19.2, 18.5, 17.8],
     "temperature_2m_max": [25.6, 26.1, 27.0, 24.9, 25.2],
-    "weather_code": [2, 3, 61, 2, 1]
+    "weather_code": [2, 3, 61, 2, 1],
+    "precipitation_probability_max": [10, 20, 80, 5, null]
   }
 }
 ```
 
-- **Mapeamento para `CurrentConditions`:** `current.temperature_2m` → `temperatureC`; `current.weather_code` → `weatherCode`; `current.time` → `referenceTimeLocal`. `timezone` identifica o fuso IANA para formatação; `utc_offset_seconds` auxilia conversões quando necessário e não é persistido no modelo mínimo.
-- **Mapeamento para `ForecastDay`:** alinhar os arrays `daily.time`, `daily.temperature_2m_min`, `daily.temperature_2m_max` e `daily.weather_code` pelo mesmo índice: `time` → `localDate`; `temperature_2m_min` → `minimumC`; `temperature_2m_max` → `maximumC`; `weather_code` → `weatherCode`.
-- **Mapeamento para `WeatherSnapshot`:** combinar o `City` explicitamente selecionado com `CurrentConditions` e a tupla de cinco `ForecastDay`. Produzir as cinco datas locais acordadas; valores ausentes/inválidos viram `null`, sem conversão para zero. `TemperatureUnit` não vem da API: a UI começa em `celsius` e usa esse estado para formatar valores.
+- **Mapeamento para `CurrentWeather`:** `current.temperature_2m` → `temperatureC`; `current.weather_code` → `weatherCode`; `current.time` → `referenceTimeLocal`; `current.relative_humidity_2m` → `humidityPercent`; `current.wind_speed_10m` → `windSpeedKmh`; `current.precipitation` → `precipitationMm`; `current.surface_pressure` → `pressureHpa`. `timezone` identifica o fuso IANA para formatação; `utc_offset_seconds` auxilia conversões quando necessário e não é persistido no modelo mínimo.
+- **Mapeamento para `ForecastDay`:** alinhar os arrays `daily.time`, `daily.temperature_2m_min`, `daily.temperature_2m_max`, `daily.weather_code` e `daily.precipitation_probability_max` pelo mesmo índice: `time` → `localDate`; `temperature_2m_min` → `minimumC`; `temperature_2m_max` → `maximumC`; `weather_code` → `weatherCode`; `precipitation_probability_max` → `precipitationProbabilityMaxPercent`. Ausência ou valor `null` da probabilidade permanece `null` e a UI a apresenta como indisponível.
+- **Mapeamento para `WeatherData`:** combinar o `City` explicitamente selecionado com `CurrentWeather` e a tupla `forecast` de cinco `ForecastDay`. Produzir as cinco datas locais acordadas; valores ausentes/inválidos viram `null`, sem conversão para zero. `Unit` não vem da API: a UI começa em `celsius` e usa esse estado para formatar temperaturas.
 - **Transporte e validação:** aplicar timeout de 10.000 ms por requisição via `AbortController`; validar HTTP, JSON e a estrutura esperada. Arrays diários com comprimento diferente não devem ser pareados parcialmente por índice sem verificar as datas; criar a janela local de cinco datas e preencher lacunas como indisponíveis.
 - **Operação:** não enviar credenciais nem persistir dados do usuário. Exibir atribuição visível e link para Open-Meteo conforme seus termos vigentes.
 
@@ -222,12 +232,11 @@ interface WeatherState {
   query: string;
   cities: City[];
   selectedCity: City | null;
-  snapshot: WeatherSnapshot | null;
+  data: WeatherData | null;
   error: WeatherServiceError | null;
 }
 
-type TemperatureUnit = 'celsius' | 'fahrenheit';
-function convertTemperature(valueCelsius: number | null, unit: TemperatureUnit): number | null;
+function convertTemperature(valueCelsius: number | null, unit: Unit): number | null;
 ```
 
 Semântica dos estados:
@@ -240,7 +249,7 @@ Semântica dos estados:
 
 Ao iniciar uma busca, atualizar `query`, limpar candidatos e snapshot anteriores e definir `loading/search`. Ao selecionar uma cidade, definir `selectedCity`, limpar o snapshot antigo e definir `loading/weather`. Limpar os campos de estado que não se aplicam a cada transição. Cada nova operação invalida a anterior; respostas obsoletas não podem alterar estado.
 
-`TemperatureUnit` vive no estado local de apresentação, inicia em `celsius` a cada carregamento e não é enviado à API. `WeatherSnapshot` guarda temperaturas não arredondadas em Celsius. Durante a renderização, cada componente chama a função pura `convertTemperature`: para Fahrenheit aplicar $F = C \times 9/5 + 32$; em ambas as unidades arredondar ao inteiro mais próximo, com empates afastados de zero. Alternar a unidade atualiza somente o estado visual; não modifica snapshot, seleciona outra cidade nem inicia request. O arredondamento nunca é usado como entrada para uma conversão subsequente.
+`Unit` vive no estado local de apresentação, inicia em `celsius` a cada carregamento e não é enviado à API. `WeatherData` guarda temperaturas não arredondadas em Celsius. Durante a renderização, cada componente chama a função pura `convertTemperature`: para Fahrenheit aplicar $F = C \times 9/5 + 32$; em ambas as unidades arredondar ao inteiro mais próximo, com empates afastados de zero. Alternar a unidade atualiza somente o estado visual; não modifica os dados, seleciona outra cidade nem inicia request. O arredondamento nunca é usado como entrada para uma conversão subsequente.
 
 ## Error Handling
 
@@ -274,6 +283,6 @@ Ao iniciar uma busca, atualizar `query`, limpar candidatos e snapshot anteriores
 - **Mocks de API vs. API real em cada teste:** escolher mocks em Vitest/Playwright para rapidez e determinismo. Trade-off: mocks não detectam sozinhos mudanças do provedor; cobrir isso com validação do mapeador, smoke test separado e monitoramento.
 - **Um estado `loading` + `operation` vs. estados distintos de busca e forecast:** escolher o estado solicitado pela spec e distinguir operação por campo, mantendo a máquina pequena. O trade-off é exigir testes de transição para evitar combinar `status` e `operation` inválidos.
 - **Comportamento atual difere da spec:** o hook atualmente carrega automaticamente o primeiro resultado; a implementação futura deve exigir seleção explícita (AC-01.2), limpar dados antigos e descartar respostas obsoletas (AC-05.7).
-- **Campos existentes além do produto:** tipos atuais podem conter umidade, vento, pressão e precipitação; a spec não os exige. Não devem ser mostrados nem tornar-se dependências da UI sem mudança de escopo aprovada.
+- **Métricas adicionais fora do escopo:** sensação térmica, índice UV e rajadas de vento continuam fora do modelo e da UI; só devem ser adicionados mediante mudança de escopo aprovada.
 - **Dados parciais vs. payload inválido:** preservar campos válidos mantém a UI útil; validação permissiva demais pode mascarar quebra de contrato. Validar a estrutura raiz e tratar campos individuais como opcionais.
 - **Dado “atual” com atraso e metas operacionais:** o limite de duas horas e metas de desempenho/disponibilidade precisam de aprovação de produto/operação e confirmação contra termos/cadência do provedor antes do lançamento.

@@ -8,6 +8,7 @@ import ForecastList from './components/ForecastList';
 import LoadingState from './components/states/LoadingState';
 import ErrorState from './components/states/ErrorState';
 import EmptyState from './components/states/EmptyState';
+import { mockWeatherData } from './lib/mockWeatherData';
 
 /**
  * WeatherView — aplicação completa de previsão do tempo.
@@ -18,6 +19,8 @@ import EmptyState from './components/states/EmptyState';
 export default function App() {
   const { status, data, error, query, search, retry } = useWeather();
   const [unit, setUnit] = useState<Unit>('celsius');
+  const isDemo = status === 'idle';
+  const displayedData = isDemo ? mockWeatherData : data;
 
   return (
     <div className="min-h-screen text-white">
@@ -37,11 +40,10 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-5xl space-y-8 px-4 py-8">
-        {status === 'idle' && (
-          <EmptyState
-            title="Busque uma cidade para começar"
-            hint="Ex.: Seattle, Lisboa, São Paulo…"
-          />
+        {isDemo && (
+          <p role="status" className="text-sm text-white/50">
+            Dados de demonstração — busque uma cidade para consultar dados atuais.
+          </p>
         )}
 
         {status === 'loading' && <LoadingState />}
@@ -55,10 +57,14 @@ export default function App() {
 
         {status === 'error' && error && <ErrorState message={error} onRetry={retry} />}
 
-        {status === 'success' && data && (
+        {(isDemo || status === 'success') && displayedData && (
           <>
-            <CurrentWeather city={data.city} current={data.current} unit={unit} />
-            <ForecastList forecast={data.forecast} unit={unit} />
+            <CurrentWeather
+              city={displayedData.city}
+              current={displayedData.current}
+              unit={unit}
+            />
+            <ForecastList forecast={displayedData.forecast} unit={unit} />
           </>
         )}
       </main>

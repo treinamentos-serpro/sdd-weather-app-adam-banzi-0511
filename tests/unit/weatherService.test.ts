@@ -5,8 +5,8 @@ import type { City } from '../../src/types/weather';
 const CITY: City = {
   id: 1,
   name: 'Seattle',
+  region: 'Washington',
   country: 'Estados Unidos',
-  admin1: 'Washington',
   latitude: 47.6,
   longitude: -122.33,
 };
@@ -75,27 +75,33 @@ describe('weatherService', () => {
           current: {
             time: '2026-06-16T12:00',
             temperature_2m: 18,
-            relative_humidity_2m: 80,
-            wind_speed_10m: 10,
-            surface_pressure: 1015,
-            precipitation: 0,
             weather_code: 3,
+            relative_humidity_2m: 62,
+            wind_speed_10m: 12.5,
+            precipitation: 0.2,
+            surface_pressure: 1012.4,
           },
           daily: {
             time: ['2026-06-16', '2026-06-17', '2026-06-18', '2026-06-19', '2026-06-20'],
             weather_code: [3, 61, 80, 1, 0],
             temperature_2m_max: [20, 19, 22, 24, 25],
             temperature_2m_min: [12, 11, 13, 14, 15],
-            precipitation_probability_max: [20, 90, 70, 10, null],
+            precipitation_probability_max: [10, 20, 80, 5, null],
           },
         }),
       );
 
       const data = await getWeather(CITY);
-      expect(data.current.temperature).toBe(18);
+      expect(data.current.temperatureC).toBe(18);
+      expect(data.current.humidityPercent).toBe(62);
+      expect(data.current.windSpeedKmh).toBe(12.5);
+      expect(data.current.precipitationMm).toBe(0.2);
+      expect(data.current.pressureHpa).toBe(1012.4);
       expect(data.forecast).toHaveLength(5);
-      // precipitação nula vira 0 (resposta parcial)
-      expect(data.forecast[4].precipitationProbability).toBe(0);
+      expect(data.forecast[4].maximumC).toBe(25);
+      expect(data.forecast[4].localDate).toBe('2026-06-20');
+      expect(data.forecast[2].precipitationProbabilityMaxPercent).toBe(80);
+      expect(data.forecast[4].precipitationProbabilityMaxPercent).toBeNull();
     });
 
     it('lança erro quando a resposta está incompleta', async () => {

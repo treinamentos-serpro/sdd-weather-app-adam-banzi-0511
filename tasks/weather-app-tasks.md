@@ -78,7 +78,7 @@ Prioridade: **P0** é necessária para o MVP funcional; **P1** é gate de pronti
 
 - **Descrição:** alinhar o modelo compartilhado com o plano e a spec, mantendo Celsius como representação canônica e `null` para valores ausentes.
 - **Rastreabilidade:** FR-02, FR-03; AC-02.1, AC-03.1, AC-03.2, AC-03.3.
-- **Critérios de aceite:** `src/types/weather.ts` exporta os cinco tipos listados; `City` contém id, nome, região/país anuláveis e coordenadas; condições atuais e previsões usam temperaturas Celsius anuláveis; `WeatherSnapshot.days` é uma tupla de cinco `ForecastDay`; `pnpm build` aceita os contratos sem casts para tipos da API.
+- **Critérios de aceite:** `src/types/weather.ts` exporta `Unit`, `City`, `CurrentWeather`, `ForecastDay` e `WeatherData`; `City` contém id, nome, região/país anuláveis e coordenadas; `CurrentWeather` contém temperatura, código, hora e métricas anuláveis de umidade %, vento km/h, precipitação mm e pressão hPa; `ForecastDay` inclui probabilidade máxima diária de precipitação em %, anulável; `WeatherData.forecast` é uma tupla de cinco `ForecastDay`; `pnpm build` aceita os contratos sem casts para tipos da API.
 - **Dependências:** nenhuma.
 - **Arquivos prováveis:** `src/types/weather.ts`.
 - **Tipo:** Data.
@@ -127,7 +127,7 @@ Prioridade: **P0** é necessária para o MVP funcional; **P1** é gate de pronti
 
 - **Descrição:** consultar clima atual e cinco datas locais e mapear os dados para o modelo de domínio.
 - **Rastreabilidade:** FR-02, FR-03, FR-05; AC-02.1, AC-02.2, AC-03.1, AC-03.2, AC-03.3, AC-05.3, AC-05.4, AC-05.6.
-- **Critérios de aceite:** request usa latitude/longitude do `City`, `current=temperature_2m,weather_code`, `daily=temperature_2m_min,temperature_2m_max,weather_code`, `forecast_days=5`, `timezone=auto` e Celsius; gera hoje e quatro datas locais seguintes; campos/dias sem valores viram `null`; cada request aborta em 10 s.
+- **Critérios de aceite:** request usa latitude/longitude do `City`, `current=temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m,precipitation,surface_pressure`, `daily=temperature_2m_min,temperature_2m_max,weather_code,precipitation_probability_max`, `forecast_days=5`, `timezone=auto`, Celsius, vento km/h e precipitação mm; mapeia os campos para o domínio; probabilidade diária ausente/inválida vira `null`; gera hoje e quatro datas locais seguintes; cada request aborta em 10 s.
 - **Dependências:** T-01, T-08.
 - **Arquivos prováveis:** `src/services/weatherService.ts`.
 - **Tipo:** Data.
@@ -165,9 +165,9 @@ Prioridade: **P0** é necessária para o MVP funcional; **P1** é gate de pronti
 
 ### T-17 — Apresentar clima atual
 
-- **Descrição:** atualizar o componente de clima atual com os campos mínimos e o horário da fonte.
+- **Descrição:** atualizar o hero do clima atual com temperatura, ícone/condição, horário de referência e as quatro métricas aprovadas.
 - **Rastreabilidade:** FR-02; AC-02.1, AC-02.2; NFR-06.
-- **Critérios de aceite:** fixture de temperatura `22.4` e código `2` renderiza cidade, temperatura arredondada, rótulo da condição e horário local; idade de 2 h não mostra aviso e idade acima de 2 h mostra aviso.
+- **Critérios de aceite:** fixture renderiza cidade/localidade, temperatura via `formatTemperature`, ícone e condição via `weatherCodes`, referência local, umidade em %, vento em km/h, precipitação em mm e pressão em hPa; cada campo `null` mostra “Indisponível”; idade de 2 h não mostra aviso e idade acima de 2 h mostra aviso.
 - **Dependências:** T-01, T-04, T-06, T-12.
 - **Arquivos prováveis:** `src/components/CurrentWeather.tsx`.
 - **Tipo:** UI.
@@ -176,7 +176,7 @@ Prioridade: **P0** é necessária para o MVP funcional; **P1** é gate de pronti
 
 - **Descrição:** atualizar `ForecastCard` e `ForecastList` para mínima, máxima e condição por data.
 - **Rastreabilidade:** FR-03; AC-03.1, AC-03.2, AC-03.3.
-- **Critérios de aceite:** fixture de cinco datas produz exatamente cinco cartões em ordem; cada cartão associa mínima, máxima e rótulo WMO à mesma data; `null` exibe “Indisponível” e nunca `0`.
+- **Critérios de aceite:** fixture de cinco datas produz exatamente cinco cartões em ordem; cada cartão associa mínima, máxima, rótulo WMO e probabilidade à mesma data; probabilidade disponível aparece em %, `null` aparece como indisponível e nunca como `0`.
 - **Dependências:** T-01, T-04, T-06, T-12.
 - **Arquivos prováveis:** `src/components/ForecastCard.tsx`, `src/components/ForecastList.tsx`.
 - **Tipo:** UI.
@@ -333,7 +333,7 @@ Prioridade: **P0** é necessária para o MVP funcional; **P1** é gate de pronti
 
 - **Descrição:** testar parâmetros, mapeamento, dados parciais e falhas do forecast com respostas controladas.
 - **Rastreabilidade:** AC-02.1, AC-03.1, AC-03.2, AC-03.3, AC-05.3, AC-05.4, AC-05.6.
-- **Critérios de aceite:** com relógio/fuso fixos e payload controlado, Vitest verifica cinco datas em ordem, alinhamento por data, campos ausentes `null`, resposta sem estrutura utilizável, HTTP, rede e abort em 10 s; `fetch` é sempre mockado.
+- **Critérios de aceite:** com relógio/fuso fixos e payload controlado, Vitest verifica os parâmetros `current`/`daily`/unidades, mapeamento de umidade, vento, precipitação e pressão, probabilidade diária percentual (incluindo `null`), cinco datas em ordem, resposta inválida, HTTP, rede e abort em 10 s; `fetch` é sempre mockado.
 - **Dependências:** T-09, T-10.
 - **Arquivos prováveis:** `tests/unit/weatherService.test.ts`.
 - **Tipo:** Test.
@@ -360,7 +360,7 @@ Prioridade: **P0** é necessária para o MVP funcional; **P1** é gate de pronti
 
 - **Descrição:** testar componentes de clima e previsão com dados completos, parciais e unidades variadas.
 - **Rastreabilidade:** AC-02.1, AC-02.2, AC-03.1, AC-03.2, AC-03.3, AC-04.2, AC-04.3; NFR-03.
-- **Critérios de aceite:** fixtures afirmam textos/valores exatos; atualidade testa 2 h versus 2 h 1 min; previsão rende cinco datas na ordem; `null` rende “Indisponível”; `0 °C` rende `32°` e retorna a `0°`; árvore acessível associa valor e unidade à cidade/data.
+- **Critérios de aceite:** fixtures afirmam os valores exatos de umidade, vento, precipitação e pressão com unidades; `null` em cada métrica rende “Indisponível”; probabilidade de chuva disponível mostra `%` e ausente mostra “Indisponível”; atualidade testa 2 h versus 2 h 1 min; previsão rende cinco datas na ordem; `0 °C` rende `32°` e retorna a `0°`; árvore acessível associa valores/unidades à cidade/data.
 - **Dependências:** T-17, T-18, T-20, T-21, T-28.
 - **Arquivos prováveis:** `tests/unit/CurrentWeather.test.tsx`, `tests/unit/ForecastList.test.tsx`.
 - **Tipo:** Test.

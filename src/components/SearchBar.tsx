@@ -17,8 +17,13 @@ export default function SearchBar({ onSearch, disabled }: SearchBarProps) {
   }
 
   return (
-    <form role="search" onSubmit={handleSubmit} className="w-full max-w-md">
-      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 backdrop-blur-md focus-within:border-accent-500">
+    <form
+      role="search"
+      aria-label="Buscar cidades"
+      onSubmit={handleSubmit}
+      className="w-full max-w-md"
+    >
+      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 backdrop-blur-md transition focus-within:border-accent-500 focus-within:ring-2 focus-within:ring-accent-500/30">
         <span aria-hidden="true" className="text-white/50">
           🔍
         </span>
@@ -29,6 +34,7 @@ export default function SearchBar({ onSearch, disabled }: SearchBarProps) {
           id="city-search"
           type="text"
           value={value}
+          disabled={disabled}
           onChange={(e) => setValue(e.target.value)}
           placeholder="Buscar cidade…"
           autoComplete="off"
